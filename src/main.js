@@ -1,5 +1,5 @@
 import { REGION_WIDTH, visibleRegions } from './random.js';
-import { CHOICES, DEFAULTS, exportSVG, LAND, LAND_NAMES, normalizeOptions, PALETTES, RANGES, Village } from './world.js';
+import { CHOICES, DEFAULTS, exportSVG, LAND, LAND_NAMES, normalizeOptions, PALETTES, RANGES, textured, Village, wallFilter } from './world.js';
 
 const icons = {
   arrow: '<path d="M4 12h16m-6-6 6 6-6 6"/>',
@@ -15,7 +15,7 @@ const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" f
 const emblem = '<svg class="emblem" viewBox="0 0 40 48" aria-hidden="true"><circle cx="20" cy="6" r="4" fill="currentColor"/><path d="M12 14h16l-8 14zM20 28l10 13H10z" fill="currentColor"/><path d="m13 16-9 8 5 7m18-15 9 8-5 7M15 41l-3 6m13-6 3 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 
 const LABELS = {
-  density: 'Density', life: 'People', wild: 'Wildlife', sky: 'Birds & stars', wobble: 'Hand-drawn wobble', weight: 'Line weight',
+  density: 'Density', life: 'People', wild: 'Wildlife', motion: 'Movement', sky: 'Birds & stars', wobble: 'Unevenness', jitter: 'Jitter', weight: 'Line weight', rough: 'Rough edges', texture: 'Paint gaps',
   season: 'Season', time: 'Time of day', border: 'Border', ...LAND_NAMES,
 };
 const CHOICE_LABELS = { harvest: 'Harvest', monsoon: 'Monsoon', summer: 'Summer', day: 'Day', dusk: 'Dusk', night: 'Night', zigzag: 'Zig-zag', dots: 'Dots', none: 'None' };
@@ -36,7 +36,8 @@ document.querySelector('#app').innerHTML = `
       <p class="intro-note">An endless scroll of ordinary wonders. <br>Inspired by the rhythms of Warli art.</p>
     </section>
     <section class="artwork" id="artwork" aria-label="Interactive village artwork">
-      <svg id="village" role="img" aria-label="A procedurally drawn Warli-inspired village. Use the previous and next buttons or arrow keys to explore." tabindex="0" preserveAspectRatio="xMidYMid meet"><title>Anant Gaon — an endless village</title><g id="world"></g></svg>
+      <div class="paint" id="paint" aria-hidden="true"></div>
+      <svg id="village" role="img" aria-label="A procedurally drawn Warli-inspired village. Use the previous and next buttons or arrow keys to explore." tabindex="0" preserveAspectRatio="xMidYMid meet"><title>Anant Gaon — an endless village</title></svg>
       <div class="art-bottom"><button class="scene-arrow previous" id="previous" aria-label="Walk back">${icon('arrow')}</button><span class="wander-hint"><span aria-hidden="true">←</span> DRAG TO WANDER <span aria-hidden="true">→</span></span><button class="scene-arrow" id="next" aria-label="Walk on">${icon('arrow')}</button></div>
     </section>
     <section class="toolbar" aria-label="Artwork controls">
@@ -47,10 +48,10 @@ document.querySelector('#app').innerHTML = `
     <details class="settings" id="settings">
       <summary>${icon('sliders')}<span>Village settings</span></summary>
       <div class="settings-grid">
-        <fieldset><legend>Village</legend>${['density', 'life', 'wild', 'sky'].map(slider).join('')}</fieldset>
+        <fieldset><legend>Village</legend>${['density', 'life', 'wild', 'motion', 'sky'].map(slider).join('')}</fieldset>
         <fieldset><legend>Land mix</legend>${LAND.map(slider).join('')}</fieldset>
         <fieldset><legend>Mood</legend>${Object.keys(CHOICES).map(select).join('')}</fieldset>
-        <fieldset><legend>Line</legend>${['wobble', 'weight'].map(slider).join('')}<button type="button" class="button reset-button" id="reset-settings">Reset settings</button></fieldset>
+        <fieldset><legend>Line</legend>${['wobble', 'jitter', 'weight', 'rough', 'texture'].map(slider).join('')}<button type="button" class="button reset-button" id="reset-settings">Reset settings</button></fieldset>
       </div>
     </details>
     <div class="scene-caption"><div><span class="scene-number" id="scene-number">01</span><span class="scene-name" id="scene-name"></span><span class="caption-divider">/</span><span id="scene-description"></span></div><button class="text-button share-button" id="share" aria-label="Copy this view">${icon('link')}<span>Copy this view</span></button></div>
@@ -62,7 +63,12 @@ document.querySelector('#app').innerHTML = `
 
 const $ = selector => document.querySelector(selector);
 const svg = $('#village');
-const world = $('#world');
+const paint = $('#paint');
+/** Each region is painted as its own image: drawn and textured once, then only moved as you walk,
+ *  so the wall texture costs nothing while panning. */
+const layers = new Map();
+const PAD = 140; // room for trees and dancers that reach past a region's edge; neighbours overlap transparently
+const retire = img => { URL.revokeObjectURL(img.src); img.remove(); };
 const seedInput = $('#seed');
 const dialog = $('#about');
 const params = new URLSearchParams(location.search);
@@ -90,6 +96,7 @@ const descriptions = {
   home: { name: 'At home', text: 'Grain in the store, smoke from the hearth.' },
   field: { harvest: 'Sickles out; the season repays the work.', monsoon: 'Bullocks, ploughs and the first green rows.', summer: 'Dry furrows waiting for the rain.' },
   water: { name: 'By the water', text: 'Where the village pauses for a while.' },
+  river: { name: 'At the river', text: 'Down from the hills, under the bridge, on its way.' },
   forest: { name: 'Among the trees', text: 'Room for the wild and the wandering.' },
   grove: { name: 'The sacred grove', text: 'Waghoba keeps watch from under the old trees.' },
   festival: { name: 'The tarpa dance', text: 'Hand in hand, circling the music.' },
@@ -112,15 +119,48 @@ function requestRender() {
 
 let lastCaption = '';
 let lastWorldKey = '';
+let lastLook = '';
 function draw() {
   const view = camera();
-  svg.setAttribute('viewBox', `${view.center - view.width / 2} ${view.top} ${view.width} ${view.height}`);
-  // Redraw only when a region enters or leaves the view; panning within regions just moves the viewBox.
-  const key = JSON.stringify([seed, options, visibleRegions(view.center, view.width)]);
+  const left = view.center - view.width / 2;
+  svg.setAttribute('viewBox', `${left} ${view.top} ${view.width} ${view.height}`);
+  // Where the camera's viewBox lands in the artwork, as the outer svg would place it (xMidYMid meet).
+  const cw = paint.clientWidth, ch = paint.clientHeight;
+  const k = Math.min(cw / view.width, ch / view.height) || 1;
+  const ox = (cw - view.width * k) / 2, oy = (ch - view.height * k) / 2;
+  // A new seed, setting or scale repaints every region; panning only adds the ones coming into view.
+  const look = JSON.stringify([seed, options, paletteKey, view.top, view.height, k]);
+  if (look !== lastLook) {
+    // Keep the old painting up until the new one has decoded, so a zoom or palette change never flashes blank.
+    const stale = [...layers.values()];
+    layers.clear();
+    lastLook = look;
+    lastWorldKey = '';
+    queueMicrotask(() => Promise.all([...layers.values()].map(img => img.decode().catch(() => {}))).then(() => stale.forEach(retire)));
+  }
+  const key = visibleRegions(view.center, view.width).join();
   if (key !== lastWorldKey) {
-    world.innerHTML = village.render(view);
+    const regions = village.regions(view);
+    const keep = new Set(regions.map(([index]) => index));
+    for (const [index, el] of layers) if (!keep.has(index)) { retire(el); layers.delete(index); }
+    const filter = textured(options) ? ' filter="url(#wall)"' : '';
+    const ink = PALETTES[paletteKey].ink;
+    for (const [index, markup] of regions) {
+      if (layers.has(index)) continue;
+      const w = REGION_WIDTH + PAD * 2;
+      const image = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${index * REGION_WIDTH - PAD} ${view.top} ${w} ${view.height}" width="${w * k}" height="${view.height * k}" style="color:${ink}"><defs>${wallFilter(options.texture, options.rough)}</defs><g${filter}>${markup}</g></svg>`;
+      const img = new Image(Math.round(w * k), Math.round(view.height * k));
+      img.alt = '';
+      img.decoding = 'async';
+      img.src = URL.createObjectURL(new Blob([image], { type: 'image/svg+xml' }));
+      paint.append(img);
+      layers.set(index, img);
+    }
     lastWorldKey = key;
   }
+  // Whole device pixels: a fractional offset makes the browser repaint the layer instead of just moving it.
+  const dpr = devicePixelRatio || 1, snap = v => Math.round(v * dpr) / dpr;
+  for (const [index, el] of layers) el.style.transform = `translate(${snap(ox + (index * REGION_WIDTH - PAD - left) * k)}px, ${snap(oy)}px)`;
   const land = village.landNear(center);
   const info = descriptions[land];
   const caption = `${land}:${options.season}:${Math.floor(center / REGION_WIDTH)}`;
