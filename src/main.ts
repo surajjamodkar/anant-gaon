@@ -17,7 +17,7 @@ const emblem = '<svg class="emblem" viewBox="0 0 40 48" aria-hidden="true"><circ
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="header">
     <a class="brand" href="./" aria-label="Anant Gaon home">${emblem}<span><strong>Anant Gaon<span class="brand-dot">.</span></strong><small>अनंत गाँव · THE ENDLESS VILLAGE</small></span></a>
-    <div class="header-actions"><button class="text-button" id="about-open">The art & the algorithm <span aria-hidden="true">↗</span></button><button class="button export-button" id="export">${icon('download')}<span>Save artwork</span></button></div>
+    <div class="header-actions"><button class="text-button" id="about-open">The art & the algorithm <span aria-hidden="true">↗</span></button><button class="button export-button" id="export" aria-label="Save artwork">${icon('download')}<span>Save artwork</span></button></div>
   </header>
   <main>
     <section class="intro" aria-labelledby="title">
@@ -35,7 +35,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="palette-controls" role="group" aria-label="Artwork palette"><button class="swatch clay" data-palette="clay" aria-label="Terracotta palette" title="Terracotta" aria-pressed="true"></button><button class="swatch night" data-palette="night" aria-label="Indigo palette" title="Indigo" aria-pressed="false"></button><button class="swatch paper" data-palette="paper" aria-label="Parchment palette" title="Parchment" aria-pressed="false"></button><span id="palette-label">Terracotta</span></div>
       <div class="view-controls"><div class="zoom-controls" role="group" aria-label="Zoom"><button class="icon-button" id="zoom-out" aria-label="Zoom out">${icon('minus')}</button><button id="zoom-reset" class="zoom-level" aria-label="Reset zoom">100%</button><button class="icon-button" id="zoom-in" aria-label="Zoom in">${icon('plus')}</button></div><span class="separator"></span><button class="button wander-button" id="autoplay" aria-pressed="false">${icon('play')}<span>Take a stroll</span></button></div>
     </section>
-    <div class="scene-caption"><div><span class="scene-number" id="scene-number">01</span><span class="scene-name" id="scene-name">The gathering</span><span class="caption-divider">/</span><span id="scene-description">A little music. A moment together.</span></div><button class="text-button share-button" id="share">${icon('link')}<span>Copy this view</span></button></div>
+    <div class="scene-caption"><div><span class="scene-number" id="scene-number">01</span><span class="scene-name" id="scene-name">The gathering</span><span class="caption-divider">/</span><span id="scene-description">A little music. A moment together.</span></div><button class="text-button share-button" id="share" aria-label="Copy this view">${icon('link')}<span>Copy this view</span></button></div>
   </main>
   <footer><span>Every line is a calculation. Every village, a little different.</span><span>MADE OF GEOMETRY & EVERYDAY LIFE <span class="footer-star">✳</span></span></footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
