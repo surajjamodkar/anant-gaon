@@ -167,3 +167,23 @@ test('figures stay inside their region, so neighbouring regions never collide', 
   const v = new Village('mitti-42', { density: 2, life: 2, wild: 2 });
   for (let i = 0; i < 10; i++) { v.region(i); for (const { b } of v.layout.get(i)) assert.ok(b[0] >= -0.01 && b[2] <= 1000.01, `region ${i}: ${b.map(Math.round)}`); }
 });
+
+test('every piece is written in its own raga, and the village picks a fitting one', async () => {
+  const { PIECES, parsePhrase, pieceFor } = await import('../src/sound.js');
+  const semis = { S: 0, R: 2, g: 3, G: 4, m: 5, P: 7, d: 8, D: 9, n: 10 };
+  assert.equal(PIECES.length, 6);
+  for (const piece of PIECES) {
+    const allowed = new Set([...piece.swaras].map(s => semis[s]));
+    for (const phrase of piece.phrases) {
+      const notes = parsePhrase(phrase);
+      assert.ok(notes.length > 0 && !notes[0].rest, `${piece.id}: ${phrase}`);
+      for (const note of notes) if (!note.rest) assert.ok(allowed.has(((note.semi % 12) + 12) % 12), `${piece.id}: ${phrase}`);
+    }
+  }
+  assert.deepEqual(parsePhrase(".D S - _ _ S'"), [{ semi: -3, beats: 1 }, { semi: 0, beats: 2 }, { rest: true, beats: 2 }, { semi: 12, beats: 1 }]);
+  assert.throws(() => parsePhrase('S X'));
+  assert.equal(pieceFor({ season: 'harvest', time: 'day', land: 'festival' }), 'tarpa');
+  assert.equal(pieceFor({ season: 'monsoon', time: 'night', land: 'home' }), 'megh');
+  assert.equal(pieceFor({ season: 'summer', time: 'night', land: 'home' }), 'raat');
+  assert.equal(pieceFor({ season: 'harvest', time: 'day', land: 'field' }), 'khet');
+});

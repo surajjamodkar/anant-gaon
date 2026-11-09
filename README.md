@@ -42,6 +42,7 @@ node --test tests/*.test.js
   - **Border**: zig-zag, dots or none.
   - **Line**: **unevenness** (how far long strokes wander, so straight lines come out uneven, including the path and border), **jitter** (a small tremor on every point), **line weight**, **rough edges** (how ragged the wall makes each stroke's edge) and **paint gaps** (where the paste skipped over the wall).
 - Save the current view as a standalone SVG.
+- The village strolls and the music plays on their own when the page opens (if the browser blocks sound, it starts on your first click or key press). **Pause scroll** and the note beside the caption stop them. Six pieces are played live in code, each in a raga with a tanpura drone, a bansuri or tarpa voice and, for some, a dholki: *Bhor* (Bhupali), *Khet* (Deshkar), *Tarpa naach*, *Barsaat* (Megh), *Sanjh* (Durga) and *Raat* (Malkauns). Under **Mood**, play them in order, shuffled, or let them follow the village (the festival, the rain, the hour). Crickets, birds, cattle bells and rain come and go with where you are. Music volume and village sounds have their own sliders.
 
 Every setting can also be set in the URL, for example `?seed=mitti-42&season=monsoon&density=1.5&time=night&palette=night`.
 
@@ -55,6 +56,7 @@ Every setting can also be set in the URL, for example `?seed=mitti-42&season=mon
 - `src/sky.js`: the upper band: birds in flight with spread wings, V-flocks, kites, and clouds trailing broken lines of rain in the monsoon.
 - `src/plants.js`: a plant generator. A species is a few dozen numbers (form, branching, droop, leaf kind and spacing), so the walk keeps finding new trees, herbs, palms, bananas and shrubs.
 - `src/motifs.js`: cattle, bullock carts, ploughs, the threshing floor, two women pounding grain, wells, granaries, hand mills, huts with ladders and cradles, stone-edged fields, a village shrine and Waghoba's carved post, classic trees, wildlife, sky and land.
+- `src/sound.js`: the music and village sounds, synthesised with the Web Audio API. Phrases are written as swaras (`G R S .D`); a seeded stream picks the next phrase, the pauses and the glides.
 - `src/world.js`: the planner, settings, the wall texture filter, and SVG export.
 - `src/main.js`: camera, controls, settings panel and URL state.
 

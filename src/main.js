@@ -1,4 +1,5 @@
 import { REGION_WIDTH, visibleRegions } from './random.js';
+import { MODES, Soundscape } from './sound.js';
 import { CHOICES, DEFAULTS, exportSVG, LAND, LAND_NAMES, normalizeOptions, PALETTES, RANGES, textured, Village, wallFilter } from './world.js';
 
 const icons = {
@@ -8,6 +9,8 @@ const icons = {
   plus: '<path d="M5 12h14M12 5v14"/>', minus: '<path d="M5 12h14"/>',
   play: '<path d="m9 5 10 7-10 7z"/>', pause: '<path d="M8 5v14M16 5v14"/>',
   link: '<path d="m10 13 4-2m-4-4 2-2a5 5 0 0 1 7 7l-2 2m-3 3-2 2a5 5 0 0 1-7-7l2-2"/>',
+  music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  skip: '<path d="m5 5 10 7-10 7zM19 5v14"/>',
   close: '<path d="m6 6 12 12M6 18 18 6"/>',
   sliders: '<path d="M4 7h10m4 0h2M4 17h4m4 0h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
 };
@@ -35,6 +38,7 @@ document.querySelector('#app').innerHTML = `
       <div><p class="eyebrow"><span class="small-rule"></span> A WORLD DRAWN IN CODE</p><h1 id="title">Somewhere, life goes on.</h1></div>
       <p class="intro-note">An endless scroll of ordinary wonders. <br>Inspired by the rhythms of Warli art.</p>
     </section>
+    <div class="scene-caption"><div><span class="scene-number" id="scene-number">01</span><span class="scene-name" id="scene-name"></span><span class="caption-divider">/</span><span id="scene-description"></span></div><div class="caption-actions"><button class="text-button stroll-button" id="stroll-toggle" aria-pressed="false">${icon('play')}<span>Play scroll</span></button><span class="separator"></span><div class="music-controls" role="group" aria-label="Music"><button class="icon-button" id="music-toggle" aria-pressed="false" aria-label="Play music" title="Play music">${icon('music')}</button><span class="now-playing" id="now-playing" aria-live="polite">Music</span><button class="icon-button" id="music-next" aria-label="Next piece" title="Next piece">${icon('skip')}</button></div><span class="separator"></span><button class="text-button share-button" id="share" aria-label="Copy this view">${icon('link')}<span>Copy this view</span></button></div></div>
     <section class="artwork" id="artwork" aria-label="Interactive village artwork">
       <div class="paint" id="paint" aria-hidden="true"></div>
       <svg id="village" role="img" aria-label="A procedurally drawn Warli-inspired village. Use the previous and next buttons or arrow keys to explore." tabindex="0" preserveAspectRatio="xMidYMid meet"><title>Anant Gaon — an endless village</title></svg>
@@ -42,19 +46,17 @@ document.querySelector('#app').innerHTML = `
     </section>
     <section class="toolbar" aria-label="Artwork controls">
       <form id="seed-form" class="seed-controls"><label for="seed">VILLAGE SEED</label><div class="seed-input-wrap"><input id="seed" name="seed" maxlength="64" autocomplete="off" spellcheck="false" aria-label="Village seed" required><button type="submit" class="seed-apply" aria-label="Apply seed" title="Apply seed">${icon('arrow')}</button></div><button type="button" class="icon-button new-village" id="regenerate" aria-label="Generate a new village" title="New village">${icon('refresh')}</button></form>
-      <div class="palette-controls" role="group" aria-label="Artwork palette">${Object.entries(PALETTES).map(([key, p]) => `<button class="swatch" style="background:${p.ground}" data-palette="${key}" aria-label="${p.name} palette" title="${p.name}" aria-pressed="false"></button>`).join('')}<span id="palette-label"></span></div>
-      <div class="view-controls"><div class="zoom-controls" role="group" aria-label="Zoom"><button class="icon-button" id="zoom-out" aria-label="Zoom out">${icon('minus')}</button><button id="zoom-reset" class="zoom-level" aria-label="Reset zoom">100%</button><button class="icon-button" id="zoom-in" aria-label="Zoom in">${icon('plus')}</button></div><span class="separator"></span><button class="button wander-button" id="autoplay" aria-pressed="false">${icon('play')}<span>Take a stroll</span></button></div>
+      <div class="palette-controls" role="group" aria-label="Artwork palette">${Object.entries(PALETTES).map(([key, p]) => `<button class="swatch" style="background:${p.ground}" data-palette="${key}" aria-label="${p.name} palette" title="${p.name}" aria-pressed="false"></button>`).join('')}<span id="palette-label"></span></div><button type="button" class="settings-toggle" id="settings-toggle" aria-expanded="false" aria-controls="settings">${icon('sliders')}<span>Village settings</span></button>
+      <div class="view-controls"><div class="zoom-controls" role="group" aria-label="Zoom"><button class="icon-button" id="zoom-out" aria-label="Zoom out">${icon('minus')}</button><button id="zoom-reset" class="zoom-level" aria-label="Reset zoom">100%</button><button class="icon-button" id="zoom-in" aria-label="Zoom in">${icon('plus')}</button></div></div>
     </section>
-    <details class="settings" id="settings">
-      <summary>${icon('sliders')}<span>Village settings</span></summary>
+    <div class="settings" id="settings" hidden>
       <div class="settings-grid">
         <fieldset><legend>Village</legend>${['density', 'life', 'wild', 'motion', 'sky'].map(slider).join('')}</fieldset>
         <fieldset><legend>Land mix</legend>${LAND.map(slider).join('')}</fieldset>
-        <fieldset><legend>Mood</legend>${Object.keys(CHOICES).map(select).join('')}</fieldset>
+        <fieldset><legend>Mood</legend>${Object.keys(CHOICES).map(select).join('')}<label class="setting"><span>Music</span><select id="music-mode">${Object.entries(MODES).map(([v, name]) => `<option value="${v}">${name}</option>`).join('')}</select></label><label class="setting"><span>Music volume</span><output id="music-level-out"></output><input type="range" id="music-level" min="0" max="1" step="0.05"></label><label class="setting"><span>Village sounds</span><output id="ambience-level-out"></output><input type="range" id="ambience-level" min="0" max="1" step="0.05"></label></fieldset>
         <fieldset><legend>Line</legend>${['wobble', 'jitter', 'weight', 'rough', 'texture'].map(slider).join('')}<button type="button" class="button reset-button" id="reset-settings">Reset settings</button></fieldset>
       </div>
-    </details>
-    <div class="scene-caption"><div><span class="scene-number" id="scene-number">01</span><span class="scene-name" id="scene-name"></span><span class="caption-divider">/</span><span id="scene-description"></span></div><button class="text-button share-button" id="share" aria-label="Copy this view">${icon('link')}<span>Copy this view</span></button></div>
+    </div>
   </main>
   <footer><span>Every line is a calculation. Every village, a little different.</span><span>Inspired by <a href="https://github.com/LingDong-/shan-shui-inf" target="_blank" rel="noopener noreferrer">{Shan, Shui}*</a> <span class="footer-star">✳</span></span></footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -163,8 +165,9 @@ function draw() {
   for (const [index, el] of layers) el.style.transform = `translate(${snap(ox + (index * REGION_WIDTH - PAD - left) * k)}px, ${snap(oy)}px)`;
   const land = village.landNear(center);
   const info = descriptions[land];
-  const caption = `${land}:${options.season}:${Math.floor(center / REGION_WIDTH)}`;
+  const caption = `${land}:${options.season}:${options.time}:${Math.floor(center / REGION_WIDTH)}`;
   if (caption !== lastCaption) {
+    sound.setScene({ season: options.season, time: options.time, land });
     $('#scene-name').textContent = info.name ?? 'In the fields';
     $('#scene-description').textContent = info.text ?? info[options.season];
     $('#scene-number').textContent = String(Math.abs(Math.floor(center / REGION_WIDTH)) % 100).padStart(2, '0');
@@ -203,8 +206,8 @@ function toast(message) {
 function setStrolling(value) {
   strolling = value;
   lastTime = 0;
-  $('#autoplay').setAttribute('aria-pressed', String(value));
-  $('#autoplay').innerHTML = `${icon(value ? 'pause' : 'play')}<span>${value ? 'Pause stroll' : 'Take a stroll'}</span>`;
+  $('#stroll-toggle').setAttribute('aria-pressed', String(value));
+  $('#stroll-toggle').innerHTML = `${icon(value ? 'pause' : 'play')}<span>${value ? 'Pause scroll' : 'Play scroll'}</span>`;
   $('#artwork').classList.toggle('strolling', value);
   if (!value) updateURL();
   requestRender();
@@ -238,6 +241,7 @@ function setSeed(value) {
   if (!nextSeed) { seedInput.setCustomValidity('Enter a village seed.'); seedInput.reportValidity(); return; }
   seedInput.setCustomValidity('');
   seed = nextSeed;
+  sound.setSeed(seed);
   village = new Village(seed, options);
   seedInput.value = seed;
   center = 500;
@@ -255,6 +259,11 @@ $('#regenerate').addEventListener('click', () => {
 });
 document.querySelectorAll('[data-palette]').forEach(button => button.addEventListener('click', () => setPalette(button.dataset.palette)));
 document.querySelectorAll('[data-option]').forEach(input => input.addEventListener('input', () => setOptions({ ...options, [input.dataset.option]: input.value })));
+$('#settings-toggle').addEventListener('click', () => {
+  const open = $('#settings').hidden;
+  $('#settings').hidden = !open;
+  $('#settings-toggle').setAttribute('aria-expanded', String(open));
+});
 $('#reset-settings').addEventListener('click', () => setOptions({}));
 
 function move(direction) {
@@ -268,7 +277,7 @@ function setZoom(value) { zoom = Math.max(0.65, Math.min(1.8, Math.round(value *
 $('#zoom-out').addEventListener('click', () => setZoom(zoom - 0.15));
 $('#zoom-in').addEventListener('click', () => setZoom(zoom + 0.15));
 $('#zoom-reset').addEventListener('click', () => setZoom(1));
-$('#autoplay').addEventListener('click', () => setStrolling(!strolling));
+$('#stroll-toggle').addEventListener('click', () => setStrolling(!strolling));
 $('#export').addEventListener('click', () => {
   setStrolling(false);
   const blob = new Blob([exportSVG(village, camera(), PALETTES[paletteKey])], { type: 'image/svg+xml;charset=utf-8' });
@@ -336,7 +345,48 @@ new ResizeObserver(() => {
   width = Math.max(450, (svg.clientWidth / Math.max(1, svg.clientHeight)) * height);
   requestRender();
 }).observe(svg);
+// Music: on by default. Browsers only allow sound after a click or key press, so if autoplay is blocked it starts on the first one.
+// Volume, mode, and an explicit pause are remembered per browser.
+const stored = (() => { try { return JSON.parse(localStorage.getItem('anant-gaon-sound')) ?? {}; } catch { return {}; } })();
+const level = value => (Number.isFinite(Number(value)) ? Math.min(1, Math.max(0, Number(value))) : undefined);
+const sound = new Soundscape({
+  seed,
+  mode: Object.hasOwn(MODES, stored.mode) ? stored.mode : 'order',
+  music: level(stored.music) ?? 0.7,
+  ambience: level(stored.ambience) ?? 0.6,
+  onChange: syncMusic,
+});
+let musicOff = stored.off === true;
+function syncMusic() {
+  const piece = sound.piece;
+  $('#music-toggle').setAttribute('aria-pressed', String(sound.playing));
+  $('#music-toggle').setAttribute('aria-label', sound.playing ? 'Pause music' : 'Play music');
+  $('#music-toggle').title = sound.playing ? 'Pause music' : 'Play music';
+  $('#now-playing').textContent = sound.playing ? `${piece.name} · ${piece.raga}` : 'Music';
+  $('#now-playing').title = sound.playing ? piece.note : '';
+  $('#music-mode').value = sound.mode;
+  for (const which of ['music', 'ambience']) {
+    $(`#${which}-level`).value = String(sound.levels[which]);
+    $(`#${which}-level-out`).textContent = `${Math.round(sound.levels[which] * 100)}%`;
+  }
+  try { localStorage.setItem('anant-gaon-sound', JSON.stringify({ mode: sound.mode, ...sound.levels, off: musicOff })); } catch {}
+}
+$('#music-toggle').addEventListener('click', () => {
+  musicOff = sound.playing;
+  if (sound.playing) { sound.stop(); return; }
+  sound.start().catch(() => toast('Your browser would not start the sound.'));
+});
+$('#music-next').addEventListener('click', () => { musicOff = false; sound.next(); if (!sound.playing) sound.start().catch(() => {}); });
+$('#music-mode').addEventListener('change', event => sound.setMode(event.target.value));
+for (const which of ['music', 'ambience']) $(`#${which}-level`).addEventListener('input', event => { sound.setLevel(which, Number(event.target.value)); syncMusic(); });
+syncMusic();
+const startMusic = () => { if (!musicOff && !sound.playing) sound.start().catch(() => {}); };
+startMusic();
+for (const type of ['pointerdown', 'keydown']) addEventListener(type, startMusic, { once: true, capture: true });
+
 seedInput.value = seed;
 syncSettings();
 setPalette(paletteKey);
 requestRender();
+// The village strolls on its own from the start, unless the visitor prefers reduced motion.
+setStrolling(!reduceMotion.matches);
