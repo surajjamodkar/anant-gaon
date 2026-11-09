@@ -35,6 +35,14 @@ test('density changes how much is drawn', () => {
   assert.ok(size(1) < size(2));
 });
 
+test('the wildlife setting adds animals without moving the village', () => {
+  const lands = wild => { const v = new Village('sahaj-108', { wild }); return Array.from({ length: 8 }, (_, i) => { v.region(i); return v.plots.get(i).map(p => p.land).join('/'); }).join(); };
+  assert.equal(lands(0), lands(2));
+  const camera = { center: 500, width: 2000, height: 680 };
+  const size = wild => new Village('sahaj', { wild }).render(camera).length;
+  assert.ok(size(0) < size(2));
+});
+
 test('options are clamped and validated', () => {
   const o = normalizeOptions({ density: '99', season: 'winter', time: 'night', wobble: 'abc' });
   assert.equal(o.density, 2);

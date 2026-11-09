@@ -15,7 +15,7 @@ const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" f
 const emblem = '<svg class="emblem" viewBox="0 0 40 48" aria-hidden="true"><circle cx="20" cy="6" r="4" fill="currentColor"/><path d="M12 14h16l-8 14zM20 28l10 13H10z" fill="currentColor"/><path d="m13 16-9 8 5 7m18-15 9 8-5 7M15 41l-3 6m13-6 3 6" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 
 const LABELS = {
-  density: 'Density', life: 'People', sky: 'Birds & stars', wobble: 'Hand-drawn wobble', weight: 'Line weight',
+  density: 'Density', life: 'People', wild: 'Wildlife', sky: 'Birds & stars', wobble: 'Hand-drawn wobble', weight: 'Line weight',
   season: 'Season', time: 'Time of day', border: 'Border', ...LAND_NAMES,
 };
 const CHOICE_LABELS = { harvest: 'Harvest', monsoon: 'Monsoon', summer: 'Summer', day: 'Day', dusk: 'Dusk', night: 'Night', zigzag: 'Zig-zag', dots: 'Dots', none: 'None' };
@@ -47,7 +47,7 @@ document.querySelector('#app').innerHTML = `
     <details class="settings" id="settings">
       <summary>${icon('sliders')}<span>Village settings</span></summary>
       <div class="settings-grid">
-        <fieldset><legend>Village</legend>${['density', 'life', 'sky'].map(slider).join('')}</fieldset>
+        <fieldset><legend>Village</legend>${['density', 'life', 'wild', 'sky'].map(slider).join('')}</fieldset>
         <fieldset><legend>Land mix</legend>${LAND.map(slider).join('')}</fieldset>
         <fieldset><legend>Mood</legend>${Object.keys(CHOICES).map(select).join('')}</fieldset>
         <fieldset><legend>Line</legend>${['wobble', 'weight'].map(slider).join('')}<button type="button" class="button reset-button" id="reset-settings">Reset settings</button></fieldset>
@@ -91,6 +91,7 @@ const descriptions = {
   field: { harvest: 'Sickles out; the season repays the work.', monsoon: 'Bullocks, ploughs and the first green rows.', summer: 'Dry furrows waiting for the rain.' },
   water: { name: 'By the water', text: 'Where the village pauses for a while.' },
   forest: { name: 'Among the trees', text: 'Room for the wild and the wandering.' },
+  grove: { name: 'The sacred grove', text: 'Waghoba keeps watch from under the old trees.' },
   festival: { name: 'The tarpa dance', text: 'Hand in hand, circling the music.' },
   open: { name: 'Open ground', text: 'A breath between places.' },
 };

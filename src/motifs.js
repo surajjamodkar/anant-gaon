@@ -51,6 +51,8 @@ const ARMS = {
   herd: [[[-17, -36], [-24, -38]], [[16, -42], [22, -38]]],
   baby: [[[-10, -40], [-2, -38]], [[16, -44], [22, -50]]],
   climb: [[[-6, -62], [-2, -73]], [[8, -62], [4, -73]]],
+  pray: [[[-2, -42], [6, -49]], [[14, -42], [6, -49]]],
+  offer: [[[0, -46], [16, -54]], [[14, -46], [24, -54]]],
 };
 
 export function person(x, y, scale = 1, pose = 'walk', dir = 1, v = 0) {
@@ -115,6 +117,7 @@ export function person(x, y, scale = 1, pose = 'walk', dir = 1, v = 0) {
     a += line([[22, -52], [56, -52]], 1.1) + shape([[56, -55], [62, -52], [56, -49]]);
   }
   if (pose === 'herd') a += line([[20, -58], [27, 0]], 1.6);
+  if (pose === 'offer') a += line([[12, -55], [30, -55]], 1.6) + circle(17, -58, 2) + shape([[23, -56], [25, -63], [27, -56]]); // plate with a lamp
   if (pose === 'baby') a += circle(-11, -50, 3.2) + shape([[-15, -46], [-7, -46], [-11, -37]]);
   return group(x, y, scale, a, dir);
 }
@@ -192,12 +195,15 @@ export function horse(x, y, scale = 1, dir = 1, rider = false) {
 
 export function tiger(x, y, scale = 1, dir = 1) {
   let a = shape([[-42, -34], [20, -36], [28, -24], [-38, -20]], false, 2);
-  a += circle(34, -38, 11, false, 1.8) + circle(38, -40, 1.4) + circle(30, -40, 1.4);
-  a += shape([[26, -47], [28, -54], [32, -48]], false, 1.2) + shape([[37, -48], [41, -54], [43, -46]], false, 1.2);
-  a += line([[34, -34], [36, -31], [40, -33]], 1);
+  a += shape([[22, -40], [30, -50], [46, -47], [52, -36], [44, -26], [28, -27]], false, 1.8);
+  a += shape([[29, -48], [29, -57], [35, -50]], false, 1.2) + shape([[40, -49], [44, -57], [46, -47]], false, 1.2);
+  a += circle(36, -42, 1.4) + circle(45, -40, 1.4) + shape([[49, -36], [53, -35], [50, -32]]);
+  a += line([[33, -47], [34, -44]], 1) + line([[38, -48], [38, -45]], 1) + line([[42, -47], [41, -44]], 1);
+  a += line([[50, -32], [60, -34]], 0.7) + line([[50, -31], [59, -28]], 0.7);
   for (let i = -36; i < 18; i += 5) a += shape([[i, -35], [i + 2.4, -35], [i + 3.6, -22], [i + 1.2, -22]], true, 0.4);
   for (const px of [-35, -27, 12, 20]) a += line([[px, -22], [px + 1, -10], [px - 1, 0], [px + 4, 0]], 2);
   a += line([[-42, -32], [-56, -38], [-64, -56], [-56, -66]], 1.8);
+  for (const [tx, ty] of [[-52, -37], [-60, -46], [-62, -57]]) a += line([[tx - 3, ty - 2], [tx + 3, ty + 2]], 1.4);
   return group(x, y, scale, a, dir);
 }
 
@@ -555,4 +561,142 @@ export function tarpaDance(x, y, scale, rng, count) {
     .join('');
   const centre = person(-6 * scale, 4 * scale, scale * 0.95, 'tarpa', 1, 0);
   return group(x, y, 1, chain + figures + centre);
+}
+
+/* ---------- sacred places ---------- */
+
+/** A small oil lamp (diya). */
+export function lamp(x, y, scale = 1) {
+  return group(x, y, scale, shape([[-6, 0], [6, 0], [4, -4], [-4, -4]], false, 1.2) + shape([[0, -4], [-2.4, -8], [0, -14], [2.4, -8]]));
+}
+
+/** Waghoba, the tiger guardian: a carved wooden post with a tiger panel, sun and moon, and offering stones. */
+export function waghobaPost(x, y, scale = 1) {
+  let a = shape([[-6, 0], [-6, -126], [6, -126], [6, 0]], false, 1.8);
+  for (let i = -112; i < -10; i += 9) a += line([[-6, i], [6, i + 5]], 0.8, 0.6);
+  a += shape([[-28, -58], [28, -58], [28, -98], [-28, -98]], false, 1.8);
+  a += tiger(2, -64, 0.36);
+  a += circle(-10, -142, 4, false, 1.1) + moon(10, -142, 5.5);
+  for (let i = 0; i < 8; i++) { const t = (i * Math.PI) / 4; a += line([[-10 + Math.cos(t) * 6, -142 + Math.sin(t) * 6], [-10 + Math.cos(t) * 9, -142 + Math.sin(t) * 9]], 0.9); }
+  a += shape([[-14, -126], [14, -126], [0, -134]], false, 1.2);
+  for (const [sx, r] of [[-20, 6], [-9, 4.5], [14, 5.5], [24, 4]]) a += ellipse(sx, -r * 0.6, r, r * 0.7, true, 0.6);
+  return group(x, y, scale, a);
+}
+
+/** A village shrine with a stepped spire and flag, Waghoba seated inside, lamps on the step. */
+export function shrine(x, y, scale = 1) {
+  let a = shape([[-52, 0], [52, 0], [48, -9], [-48, -9]], false, 1.8) + line([[-44, -4], [44, -4]], 0.8, 0.7);
+  a += shape([[-36, -9], [36, -9], [36, -66], [-36, -66]], false, 2);
+  a += line([[-19, -9], ...arcPts(0, -44, 19, 22, Math.PI, 2 * Math.PI, 12), [19, -9]], 1.7);
+  a += tiger(1, -12, 0.27);
+  for (let i = -30; i <= 30; i += 10) if (Math.abs(i) > 20) a += line([[i, -14], [i, -60]], 0.8, 0.6);
+  a += shape([[-42, -66], [42, -66], [34, -78], [-34, -78]], false, 1.8);
+  a += shape([[-30, -78], [30, -78], [0, -128]], false, 1.9);
+  for (let k = 1; k < 4; k++) { const t = k / 4, h = -78 - t * 50, half = 30 * (1 - t); a += line([[-half, h], [half, h]], 1); }
+  a += circle(0, -132, 4, false, 1.4) + line([[0, -136], [0, -162]], 1.4) + shape([[0, -162], [24, -155], [0, -148]]);
+  for (let i = -24; i < 28; i += 8) a += shape([[i, -66], [i + 4, -61], [i + 8, -66]], false, 0.8);
+  a += lamp(-44, -9, 0.9) + lamp(44, -9, 0.9);
+  return group(x, y, scale, a);
+}
+
+/** A string of mango leaves (toran) hung between two points. */
+export function toran(x0, y0, x1, y1, sag = 16) {
+  const pts = Array.from({ length: 13 }, (_, i) => { const t = i / 12; return [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + Math.sin(t * Math.PI) * sag]; });
+  let a = line(pts, 1);
+  for (const [px, py] of pts.slice(1, -1)) a += shape([[px - 3, py], [px + 3, py], [px, py + 10]]);
+  return a;
+}
+
+/* ---------- more wildlife ---------- */
+
+export function elephant(x, y, scale = 1, dir = 1) {
+  let a = shape([[-46, -30], [-44, -62], [-18, -76], [18, -74], [38, -60], [40, -30]], false, 2);
+  a += circle(46, -60, 15, false, 1.8) + circle(50, -64, 1.4);
+  a += shape([[36, -70], [26, -52], [38, -42]], false, 1.5);
+  a += line([[58, -56], [64, -36], [62, -14], [70, -8]], 3) + line([[54, -48], [66, -44]], 2);
+  for (const px of [-40, -24, 12, 26]) a += shape([[px, -32], [px + 11, -32], [px + 11, 0], [px, 0]], false, 1.7);
+  a += line([[-46, -52], [-52, -32]], 1.4);
+  for (let r = 0; r < 3; r++) for (let i = -34 + r * 4; i < 30; i += 10) a += circle(i, -64 + r * 11, 1.2);
+  return group(x, y, scale, a, dir);
+}
+
+export function boar(x, y, scale = 1, dir = 1) {
+  let a = shape([[-26, -14], [-22, -30], [8, -34], [22, -24], [30, -16], [20, -12], [-20, -10]], false, 1.8);
+  for (let i = -20; i < 12; i += 5) a += line([[i, -31], [i + 2, -37]], 1);
+  a += circle(14, -24, 1.1) + line([[24, -16], [28, -24]], 1.4);
+  for (const px of [-18, -10, 10, 16]) a += line([[px, -11], [px, 0]], 1.8);
+  a += line([[-26, -16], [-31, -12], [-29, -8]], 1.2);
+  return group(x, y, scale, a, dir);
+}
+
+export function jackal(x, y, scale = 1, dir = 1) {
+  let a = shape([[-18, -24], [12, -25], [15, -16], [-15, -15]], false, 1.6);
+  a += shape([[11, -25], [17, -34], [30, -27], [18, -21]], false, 1.4) + shape([[15, -32], [16, -40], [20, -33]]);
+  a += shape([[-18, -24], [-30, -18], [-34, -8], [-26, -14]]);
+  for (const px of [-14, -9, 7, 11]) a += line([[px, -16], [px + 1, -7], [px - 1, 0]], 1.5);
+  return group(x, y, scale, a, dir);
+}
+
+export function hare(x, y, scale = 1, dir = 1) {
+  let a = ellipse(0, -9, 11, 7, true, 0.8) + circle(11, -14, 4.5);
+  a += ellipse(9, -25, 2.2, 8, true, 0.6, -12) + ellipse(14, -24, 2.2, 8, true, 0.6, 14);
+  a += circle(-11, -10, 3, false, 1) + line([[-4, -3], [-8, 0], [2, 0]], 1.2) + line([[6, -3], [8, 0]], 1.2);
+  return group(x, y, scale, a, dir);
+}
+
+export function squirrel(x, y, scale = 1, dir = 1) {
+  let a = ellipse(0, -7, 7, 4.5, true, 0.6) + circle(7, -10, 3) + shape([[7, -13], [8, -17], [10, -13]]);
+  a += shape([[-6, -8], [-14, -12], [-17, -24], [-12, -31], [-6, -27], [-9, -18]]);
+  return group(x, y, scale, a, dir);
+}
+
+export function owl(x, y, scale = 1) {
+  let a = ellipse(0, -14, 9, 13, false, 1.6) + circle(-4, -20, 3.4, false, 1) + circle(4, -20, 3.4, false, 1);
+  a += circle(-4, -20, 1.2) + circle(4, -20, 1.2) + shape([[-1.5, -16], [1.5, -16], [0, -12]]);
+  a += line([[-8, -25], [-7, -31], [-3, -26]], 1.1) + line([[8, -25], [7, -31], [3, -26]], 1.1);
+  for (let i = -4; i <= 4; i += 4) a += line([[i - 2, -8], [i, -5], [i + 2, -8]], 0.8);
+  a += line([[-14, 0], [14, 0]], 1.6);
+  return group(x, y, scale, a);
+}
+
+export function parrot(x, y, scale = 1, dir = 1) {
+  let a = ellipse(0, -10, 5, 9, true, 0.6, 20) + circle(3, -21, 3.6) + line([[6, -22], [9, -19], [6, -17]], 1.3);
+  a += line([[-3, -2], [-10, 14]], 1.4) + line([[-1, -2], [-6, 15]], 1.1) + line([[-14, 0], [12, 0]], 1.6);
+  return group(x, y, scale, a, dir);
+}
+
+/** A nest in a fork, with two hungry chicks. */
+export function nest(x, y, scale = 1) {
+  let a = line(arcPts(0, -6, 12, 7, 0, Math.PI, 8), 1.6) + line([[-12, -6], [12, -6]], 1.1);
+  for (let i = -9; i < 10; i += 4) a += line([[i, -6], [i + 3, -1]], 0.7);
+  a += circle(-4, -10, 2.4) + circle(4, -11, 2.4) + line([[-4, -12], [-3, -15]], 0.9) + line([[4, -13], [5, -16]], 0.9);
+  return group(x, y, scale, a);
+}
+
+export function butterfly(x, y, scale = 1) {
+  let a = line([[0, -6], [0, 6]], 1.4) + line([[0, -6], [-3, -11]], 0.8) + line([[0, -6], [3, -11]], 0.8);
+  a += shape([[0, -2], [-12, -9], [-10, 1]]) + shape([[0, -2], [12, -9], [10, 1]]);
+  a += shape([[0, 1], [-8, 7], [-3, 9]], false, 1) + shape([[0, 1], [8, 7], [3, 9]], false, 1);
+  return group(x, y, scale, a);
+}
+
+export function frog(x, y, scale = 1, dir = 1) {
+  let a = ellipse(0, -6, 8, 5, true, 0.6) + circle(4, -11, 2, false, 1) + circle(-2, -11, 2, false, 1);
+  a += line([[-6, -4], [-12, -8], [-14, 0], [-18, 0]], 1.2) + line([[6, -4], [10, -1], [12, 0]], 1.2);
+  return group(x, y, scale, a, dir);
+}
+
+export function turtle(x, y, scale = 1, dir = 1) {
+  let a = shape(arcPts(0, 0, 16, 11, Math.PI, 2 * Math.PI, 10), false, 1.6);
+  a += line([[-8, -1], [-4, -9], [4, -9], [8, -1]], 0.9) + line([[-4, -9], [0, -11], [4, -9]], 0.9);
+  a += circle(20, -4, 3.4) + line([[-12, 0], [-15, 3]], 1.4) + line([[12, 0], [15, 3]], 1.4) + line([[-16, -2], [-20, -1]], 1);
+  return group(x, y, scale, a, dir);
+}
+
+export function scorpion(x, y, scale = 1, dir = 1) {
+  let a = ellipse(0, -3, 7, 3.4, true, 0.6);
+  a += line([[-6, -3], [-12, -6], [-15, -12], [-12, -17], [-7, -16]], 1.6) + shape([[-7, -16], [-4, -14], [-7, -13]]);
+  for (const i of [-3, 0, 3]) a += line([[i, -2], [i - 2, 2]], 0.9);
+  a += line([[6, -4], [12, -7], [14, -4]], 1.1) + line([[6, -2], [12, 1], [15, -1]], 1.1);
+  return group(x, y, scale, a, dir);
 }

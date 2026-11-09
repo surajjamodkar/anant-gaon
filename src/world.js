@@ -8,8 +8,8 @@ export const PALETTES = {
   paper: { name: 'Parchment', ground: '#e7dbc0', ink: '#6d4735' },
 };
 
-export const LAND = ['home', 'field', 'water', 'forest', 'festival'];
-export const LAND_NAMES = { home: 'Homes', field: 'Fields', water: 'Water', forest: 'Forest', festival: 'Festivals' };
+export const LAND = ['home', 'field', 'water', 'forest', 'grove', 'festival'];
+export const LAND_NAMES = { home: 'Homes', field: 'Fields', water: 'Water', forest: 'Forest', grove: 'Sacred groves', festival: 'Festivals' };
 export const CHOICES = {
   season: ['harvest', 'monsoon', 'summer'],
   time: ['day', 'dusk', 'night'],
@@ -17,8 +17,8 @@ export const CHOICES = {
 };
 /** Every tunable setting: [min, max, default]. All of them can be set from the URL. */
 export const RANGES = {
-  density: [0.3, 2, 1], life: [0, 2, 1], wobble: [0, 1, 0.35], weight: [0.6, 1.8, 1], sky: [0, 2, 1],
-  home: [0, 2, 1], field: [0, 2, 1], water: [0, 2, 1], forest: [0, 2, 1], festival: [0, 2, 0.45],
+  density: [0.3, 2, 1], life: [0, 2, 1], wild: [0, 2, 1], wobble: [0, 1, 0.35], weight: [0.6, 1.8, 1], sky: [0, 2, 1],
+  home: [0, 2, 1], field: [0, 2, 1], water: [0, 2, 1], forest: [0, 2, 1], grove: [0, 2, 0.5], festival: [0, 2, 0.45],
 };
 export const DEFAULTS = {
   ...Object.fromEntries(Object.entries(RANGES).map(([k, [, , d]]) => [k, d])),
@@ -40,12 +40,16 @@ const BACK = [398, 432], MID = [470, 518], FRONT = [618, 656];
 
 /** Collision bookkeeping for one region, so motifs do not pile on top of each other. */
 class Plan {
-  constructor() { this.rows = { back: [], mid: [], path: [], front: [] }; this.items = []; }
+  constructor() { this.rows = { back: [], mid: [], path: [], front: [] }; this.items = []; this.trees = []; }
+  /** Trees are remembered so birds, owls, squirrels and monkeys can settle in them later. */
+  tree(x, y, s, svg) { this.add(y, svg); this.trees.push({ x, y, s }); }
   free(row, x0, x1) { return this.rows[row].every(([a, b]) => x1 <= a || x0 >= b); }
   take(row, x0, x1) { if (!this.free(row, x0, x1)) return false; this.rows[row].push([x0, x1]); return true; }
   add(y, svg) { this.items.push([y, svg]); }
   svg() { return this.items.sort((a, b) => a[0] - b[0]).map(([, s]) => s).join(''); }
 }
+
+const edgeX = (x0, x1, rng) => (rng() < 0.5 ? x0 + 34 : x1 - 34);
 
 export class Village {
   constructor(seed, options = {}) {
@@ -89,11 +93,16 @@ export class Village {
     const plan = new Plan();
     const style = M.getStyle();
     M.setStyle({ wobble: o.wobble, weight: o.weight, rng: random(`${seed}:ink:${index}`) });
-    const D = o.density, L = o.life;
+    const D = o.density, L = o.life, W = o.wild;
     const some = p => chance(rng, Math.min(1, p));
     const count = (n, k = D) => Math.max(0, Math.round(n * k * between(rng, 0.75, 1.25)));
     const people = p => L > 0 && some(p * L);
     const dir = () => (rng() < 0.5 ? 1 : -1);
+    // Wildlife draws from its own stream, so the Wildlife setting adds or removes animals without moving the village.
+    const wrng = random(`${seed}:wild:${index}`);
+    const wild = p => W > 0 && chance(wrng, Math.min(1, p * W));
+    const wcount = n => Math.max(0, Math.round(n * D * W * between(wrng, 0.75, 1.25)));
+    const wdir = () => (wrng() < 0.5 ? 1 : -1);
 
     /* sky */
     if (o.time === 'night') {
@@ -122,11 +131,21 @@ export class Village {
     for (const w of widths) {
       const x1 = x0 + (w / total) * REGION_WIDTH;
       const land = this.landAt(base + (x0 + x1) / 2, rng, previous);
-      this[`plot_${land}`](plan, x0, x1, { rng, some, count, people, dir, o, D, L });
+      this[`plot_${land}`](plan, x0, x1, { rng, some, count, people, dir, o, D, L, W, wrng, wild, wcount, wdir });
       plots.push({ x0, x1, land });
       previous = land;
       x0 = x1;
     }
+
+    /* wildlife that settles in the trees */
+    for (const t of plan.trees) {
+      if (!wild(0.45)) continue;
+      const tx = t.x + between(wrng, -32, 32) * t.s, ty = t.y - between(wrng, 95, 130) * t.s;
+      const kind = weighted(wrng, { owl: o.time === 'night' ? 2.5 : 0.15, parrot: o.time === 'night' ? 0 : 1, nest: 1, squirrel: 0.8, monkey: 1 });
+      const svg = { owl: () => M.owl(tx, ty, 0.8), parrot: () => M.parrot(tx, ty, 0.8, wdir()), nest: () => M.nest(tx, ty, 0.85), squirrel: () => M.squirrel(tx, ty, 0.9, wdir()), monkey: () => M.monkey(tx, ty + 6, 0.75, wdir()) }[kind]();
+      plan.add(t.y + 0.5, svg);
+    }
+    if (o.time !== 'night') for (let i = 0; i < wcount(1.6); i++) plan.add(700, M.butterfly(between(wrng, 30, 970), between(wrng, 560, 625), between(wrng, 0.6, 0.9)));
 
     /* traffic on the footpath */
     for (let i = 0; i < count(2.2); i++) {
@@ -165,10 +184,13 @@ export class Village {
     for (let i = 0; i < count(1.2); i++) {
       const lx = between(rng, 40, 960), y = between(rng, FRONT[0] + 8, FRONT[1]);
       if (!plan.take('front', lx - 40, lx + 40)) continue;
-      const kind = weighted(rng, { hens: 1.4, snake: 0.4, crab: o.water * 0.4, dog: 0.4 });
+      const kind = weighted(rng, { hens: 1.4, dog: 0.4, snake: 0.4 * W, crab: o.water * 0.4 * W, scorpion: (o.season === 'summer' ? 0.7 : 0.3) * W, frog: (o.season === 'monsoon' ? 1.2 : 0.1) * W, hare: 0.5 * W });
       if (kind === 'hens') for (let k = 0; k < 3; k++) plan.add(y, M.hen(lx + k * 20, y + (k % 2) * 5, 0.75, k ? 1 : -1, k === 0));
       else if (kind === 'snake') plan.add(y, M.snake(lx, y, 0.7, dir()));
       else if (kind === 'crab') plan.add(y, M.crab(lx, y, 0.8));
+      else if (kind === 'scorpion') plan.add(y, M.scorpion(lx, y, 0.9, dir()));
+      else if (kind === 'frog') for (let k = 0; k < 2; k++) plan.add(y, M.frog(lx + k * 24, y + k * 4, 0.9, dir()));
+      else if (kind === 'hare') plan.add(y, M.hare(lx, y, 0.85, dir()));
       else plan.add(y, M.dog(lx, y, 0.7, dir()));
     }
 
@@ -182,7 +204,7 @@ export class Village {
 
   /* ---------- plot compositions ---------- */
 
-  plot_home(plan, x0, x1, { rng, some, count, people, dir, o, L }) {
+  plot_home(plan, x0, x1, { rng, some, count, people, dir, o, L, W }) {
     const w = x1 - x0, cx = (x0 + x1) / 2;
     const hx = cx + between(rng, -w * 0.15, w * 0.15), hy = between(rng, BACK[0] + 8, BACK[1]), hs = between(rng, 0.68, 0.86);
     plan.take('back', hx - 80 * hs, hx + 85 * hs);
@@ -211,10 +233,10 @@ export class Village {
       else if (kind === 'hens') for (let k = 0; k < 3; k++) plan.add(y, M.hen(lx - 15 + k * 15, y + (k % 2) * 4, 0.7, dir(), k === 0));
       else if (kind === 'cow') { const d = dir(); plan.add(y, M.bullock(lx, y, 0.68, d)); if (some(0.5)) plan.add(y + 3, M.bullock(lx + 26 * d, y + 3, 0.45, d, { calf: true })); }
     }
-    if (some(0.5) && plan.take('back', x0 + 10, x0 + 70)) plan.add(BACK[0] - 10, choose(rng, [M.tree, M.leafyTree])(x0 + 40, BACK[0] - 10, 0.5, rng));
+    if (some(0.5) && plan.take('back', x0 + 10, x0 + 70)) plan.tree(x0 + 40, BACK[0] - 10, 0.5, choose(rng, [M.tree, M.leafyTree])(x0 + 40, BACK[0] - 10, 0.5, rng));
   }
 
-  plot_field(plan, x0, x1, { rng, some, count, people, dir, o, D, L }) {
+  plot_field(plan, x0, x1, { rng, some, count, people, dir, o, D, L, W, wrng, wild, wcount, wdir }) {
     const fx0 = x0 + 22, fx1 = x1 - 22, top = between(rng, 412, 425), bottom = between(rng, 498, 508);
     plan.take('back', fx0, fx1);
     plan.take('mid', fx0, fx1);
@@ -243,9 +265,13 @@ export class Village {
       plan.add(y, M.person(between(rng, fx0 + 30, fx1 - 50), y, 0.82, job, dir(), i));
     }
     if (o.season === 'harvest' && some(0.6)) plan.add(bottom + 4, M.haystack(fx1 - 30, bottom + 4, 0.7));
+    // Visitors at the edge of the field.
+    if (wild(0.5)) plan.add(bottom + 10, M.hare(fx0 + between(wrng, 10, 60), bottom + 12, 0.85, wdir()));
+    if (wild(0.25)) plan.add(top - 2, M.jackal(fx1 - between(wrng, 20, 60), top + 2, 0.7, -1));
+    if (wild(0.3)) plan.add(bottom + 9, M.boar(fx1 - between(wrng, 40, 90), bottom + 14, 0.75, -1));
   }
 
-  plot_water(plan, x0, x1, { rng, some, count, people, dir, o, L }) {
+  plot_water(plan, x0, x1, { rng, some, count, people, dir, o, L, W, wrng, wild, wcount, wdir }) {
     const w = x1 - x0, cx = (x0 + x1) / 2;
     const useWell = weighted(rng, { well: o.season === 'summer' ? 2.5 : 0.8, pond: o.season === 'monsoon' ? 2.5 : 1 }) === 'well';
     if (useWell) {
@@ -256,7 +282,7 @@ export class Village {
       for (let i = 0; i < count(1.5, L); i++) plan.add(y + 2 + i, M.person(cx + 82 + i * 28, y + 2 + i, 0.84, 'pot', -1, i));
       if (some(0.6) && plan.take('mid', cx - 140, cx - 70)) plan.add(y - 2, M.bullock(cx - 100, y - 2, 0.62, 1));
       const tx = cx + between(rng, -w * 0.25, w * 0.25);
-      if (plan.take('back', tx - 60, tx + 60)) plan.add(BACK[0], (some(0.5) ? M.leafyTree : M.tree)(tx, BACK[0], 0.62, rng));
+      if (plan.take('back', tx - 60, tx + 60)) plan.tree(tx, BACK[0], 0.62, (some(0.5) ? M.leafyTree : M.tree)(tx, BACK[0], 0.62, rng));
       return;
     }
     const rx = Math.min(w / 2 - 22, 200), ry = between(rng, 42, 58), py = 458;
@@ -279,9 +305,12 @@ export class Village {
       plan.add(y, M.person(cx + side * (rx * 0.55 + i * 18), y, 0.84, 'pot', -side, i));
     }
     if (o.season === 'monsoon') for (let i = 0; i < 6; i++) plan.add(py + ry + 14, M.paddy(cx - rx * 0.5 + i * 14, py + ry + 14, 0.7));
+    if (wild(0.5)) plan.add(py + 1, M.turtle(cx + between(wrng, -rx * 0.5, rx * 0.5), py + between(wrng, -ry * 0.3, ry * 0.4), 0.8, wdir()));
+    for (let i = 0; i < wcount(o.season === 'monsoon' ? 3 : 1); i++) plan.add(py + ry + 4, M.frog(cx + between(wrng, -rx, rx) * 0.8, py + ry + between(wrng, -4, 10), 0.8, wdir()));
+    if (wild(0.3) && rx > 120) plan.add(py - ry + 6, M.elephant(cx + rx - 30, py - ry + 30, 0.55, -1)); // come down to drink
   }
 
-  plot_forest(plan, x0, x1, { rng, some, count, people, dir, o, D, L }) {
+  plot_forest(plan, x0, x1, { rng, some, count, people, dir, o, D, L, W, wrng, wild, wcount, wdir }) {
     const w = x1 - x0;
     const trees = Math.max(2, Math.min(Math.floor(w / 85), count(3)));
     const kinds = [M.tree, M.leafyTree, M.fernTree, M.tree];
@@ -292,21 +321,23 @@ export class Village {
       const s = back ? between(rng, 0.62, 0.8) : between(rng, 0.75, 0.95);
       plan.take(back ? 'back' : 'mid', lx - 30, lx + 30);
       if (some(0.15)) plan.add(y, M.palm(lx, y, s * 0.95, people(0.6)));
-      else {
-        plan.add(y, choose(rng, kinds)(lx, y, s, rng));
-        if (some(0.3)) plan.add(y + 0.5, M.monkey(lx + 22 * s, y - 120 * s, 0.75, dir()));
-      }
+      else plan.tree(lx, y, s, choose(rng, kinds)(lx, y, s, rng));
     }
-    const fauna = { deer: 1.4, peacock: 1.1, tiger: 0.35, snake: 0.4, hunter: 0.4 * L };
-    for (let i = 0; i < count(2.2); i++) {
-      const lx = between(rng, x0 + 40, x1 - 40), y = between(rng, MID[0] + 10, MID[1]);
-      const kind = weighted(rng, fauna);
-      if (!plan.take('mid', lx - 38, lx + 38)) continue;
-      const d = dir();
-      if (kind === 'deer') { plan.add(y, M.deer(lx, y, 0.75, d)); if (some(0.5)) plan.add(y + 6, M.deer(lx - 30 * d, y + 6, 0.5, d)); }
+    const fauna = { deer: 1.4, peacock: 1, tiger: 0.7, elephant: 0.3, boar: 0.6, jackal: 0.5, hare: 0.6, snake: 0.4, hunter: 0.3 * L };
+    for (let i = 0; i < wcount(2.6); i++) {
+      const lx = between(wrng, x0 + 40, x1 - 40), y = between(wrng, MID[0] + 10, MID[1]);
+      const kind = weighted(wrng, fauna);
+      const half = kind === 'elephant' ? 62 : 38;
+      if (!plan.take('mid', lx - half, lx + half)) continue;
+      const d = wdir();
+      if (kind === 'deer') { plan.add(y, M.deer(lx, y, 0.75, d)); if (wrng() < 0.5) plan.add(y + 6, M.deer(lx - 30 * d, y + 6, 0.5, d)); }
       else if (kind === 'peacock') plan.add(y, M.peacock(lx, y, 0.75, d));
       else if (kind === 'tiger') plan.add(y, M.tiger(lx, y, 0.75, d));
       else if (kind === 'snake') plan.add(y, M.snake(lx, y, 0.8, d));
+      else if (kind === 'elephant') plan.add(y, M.elephant(lx, y, 0.75, d));
+      else if (kind === 'boar') plan.add(y, M.boar(lx, y, 0.85, d));
+      else if (kind === 'jackal') plan.add(y, M.jackal(lx, y, 0.8, d));
+      else if (kind === 'hare') { plan.add(y, M.hare(lx, y, 0.85, d)); if (wrng() < 0.5) plan.add(y + 5, M.hare(lx + 22, y + 5, 0.7, -d)); }
       else plan.add(y, M.person(lx, y, 0.86, 'bow', d, 0));
     }
   }
@@ -320,8 +351,33 @@ export class Village {
     const dancers = Math.max(6, Math.min(fit, Math.round(9 + 6 * D * L)));
     plan.add(y, M.tarpaDance(cx, y, 0.82, rng, dancers));
     if (some(0.6)) plan.add(y + 52, M.person(cx + w * 0.38, y + 52, 0.8, 'drum', -1, 0));
-    if (some(0.5)) plan.add(BACK[0] - 20, M.tree(x0 + 30, BACK[0] - 20, 0.45, rng));
+    if (some(0.5)) plan.tree(x0 + 30, BACK[0] - 20, 0.45, M.tree(x0 + 30, BACK[0] - 20, 0.45, rng));
     if (some(0.5)) plan.add(y + 40, M.peacock(x0 + 30, y + 40, 0.6, 1));
+  }
+
+  /** A sacred grove (devrai): old trees hung with leaves, a shrine and Waghoba's post, lamps and worshippers. */
+  plot_grove(plan, x0, x1, { rng, some, count, people, dir, o, L, W, wrng, wild, wcount, wdir }) {
+    const w = x1 - x0, cx = (x0 + x1) / 2;
+    plan.take('back', x0, x1);
+    plan.take('mid', x0 + 20, x1 - 20);
+    const tl = x0 + w * 0.2, tr = x1 - w * 0.2;
+    plan.tree(tl, BACK[1] + 6, 0.92, M.leafyTree(tl, BACK[1] + 6, 0.92, rng));
+    if (w > 280) {
+      plan.tree(tr, BACK[0] + 6, 0.78, choose(rng, [M.tree, M.leafyTree])(tr, BACK[0] + 6, 0.78, rng));
+      plan.add(BACK[1] + 7, M.toran(tl + 30, BACK[0] - 60, tr - 30, BACK[0] - 66, 18));
+    }
+    const sy = MID[0] + 16;
+    const layout = w > 300 ? weighted(rng, { temple: 1, both: 1.2 }) : weighted(rng, { temple: 1, post: 1 });
+    const templeX = layout === 'both' ? cx - 40 : cx;
+    if (layout !== 'post') plan.add(sy, M.shrine(templeX, sy, 0.85));
+    if (layout !== 'temple') plan.add(sy + 2, M.waghobaPost(layout === 'both' ? cx + 60 : cx, sy + 2, 0.82));
+    for (let i = 0; i < count(4); i++) plan.add(sy + 12, M.lamp(cx - 50 + i * 26, sy + 14, 0.9));
+    for (let i = 0; i < count(2, L); i++) {
+      const side = i % 2 ? -1 : 1;
+      plan.add(sy + 24, M.person(cx + side * (82 + i * 14), sy + 26, 0.8, i % 3 === 2 ? 'offer' : 'pray', -side, i));
+    }
+    if (wild(0.45)) { const side = wdir(); plan.add(sy - 6, M.tiger(side > 0 ? x0 + 46 : x1 - 46, sy - 4, 0.6, side)); }
+    if (wild(0.4)) plan.add(sy + 30, M.peacock(edgeX(x0, x1, wrng), sy + 32, 0.6, wdir()));
   }
 
   plot_open(plan, x0, x1, { rng, count }) {
@@ -331,7 +387,7 @@ export class Village {
     }
     if (count(1)) {
       const lx = (x0 + x1) / 2;
-      if (plan.take('back', lx - 30, lx + 30)) plan.add(BACK[1], M.leafyTree(lx, BACK[1], 0.55, rng));
+      if (plan.take('back', lx - 30, lx + 30)) plan.tree(lx, BACK[1], 0.55, M.leafyTree(lx, BACK[1], 0.55, rng));
     }
   }
 
